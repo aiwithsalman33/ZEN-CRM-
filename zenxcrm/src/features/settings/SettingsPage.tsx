@@ -1,702 +1,239 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, User, Users, Zap, Building, Mail, Phone, Globe, MapPin, Shield, Bell, Camera, ChevronRight, Coins, Eye, EyeOff, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { useUsers } from '../../contexts/UsersContext';
-import { useCompany } from '../../contexts/CompanyContext';
-import { useApi } from '../../contexts/ApiContext';
-import { useCurrency } from '../../contexts/CurrencyContext';
-import { useAuth } from '../../contexts/AuthContext';
-import Button from '@/components/ui/Button';
-import GoogleSheetsTab from './components/GoogleSheetsTab';
-import { getServerOrigin } from '@/api/serverOrigin';
+import React, { useState } from 'react';
+import {
+  Settings as SettingsIcon, Building2, GitBranch, UserCog, ListPlus, Mail, MessageCircle,
+  Plug, ShieldCheck, CreditCard, ScrollText, Plus, Trash2, GripVertical, Check, Upload,
+} from 'lucide-react';
+import { useStore } from '@/store/store';
+import { PageHeader, Button, Input, Select, Field, StatusBadge, ProgressBar, Avatar } from '@/components/ui';
+import { formatDateTime, uid } from '@/lib/utils';
+
+const SECTIONS = [
+  { key: 'company', label: 'Company', icon: Building2 },
+  { key: 'pipeline', label: 'Pipeline', icon: GitBranch },
+  { key: 'leads', label: 'Lead Settings', icon: ListPlus },
+  { key: 'fields', label: 'Custom Fields', icon: UserCog },
+  { key: 'email', label: 'Email', icon: Mail },
+  { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { key: 'integrations', label: 'Integrations', icon: Plug },
+  { key: 'roles', label: 'Roles & Permissions', icon: ShieldCheck },
+  { key: 'billing', label: 'Billing', icon: CreditCard },
+  { key: 'audit', label: 'Audit Log', icon: ScrollText },
+] as const;
 
 const SettingsPage: React.FC = () => {
-    const { updateUser } = useUsers();
-    const { companyInfo, updateCompanyInfo } = useCompany();
-    const { currency, setCurrencyByCode, availableCurrencies } = useCurrency();
-    const { user } = useAuth();
-    const { crmApi } = useApi();
-
-    const [activeTab, setActiveTab] = useState('Profile');
-    const [userData, setUserData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        avatar: user?.avatar || '',
-        phone: '',
-        timezone: 'America/New_York',
-        language: 'English'
-    });
-
-    const [companyData, setCompanyData] = useState({
-        name: companyInfo.name,
-        address: companyInfo.address,
-        phone: companyInfo.phone,
-        email: companyInfo.email,
-        website: companyInfo.website,
-        logo: companyInfo.logo
-    });
-
-    const handleSaveProfile = async () => {
-        try {
-            const res = await crmApi.updateProfile({ name: userData.name, avatar: userData.avatar, phone: userData.phone });
-            if (user?.id) updateUser(user.id, res.data);
-            alert('Profile updated successfully!');
-        } catch {
-            alert('Failed to save profile. Please try again.');
-        }
-    };
-
-    const handleSaveCompany = () => {
-        updateCompanyInfo(companyData);
-        alert('Company information updated successfully!');
-    };
-
-    const allTabs = [
-        { id: 'Profile', label: 'My Profile', icon: User, desc: 'Personal details and credentials' },
-        { id: 'Company', label: 'Company Info', icon: Building, desc: 'Branding and corporate data' },
-        { id: 'Users', label: 'Team access', icon: Users, desc: 'Manage roles & permissions' },
-        { id: 'Integrations', label: 'Connections', icon: Zap, desc: 'Sync with external tools' },
-    ];
-
-    const tabs = allTabs.filter(tab => {
-        if (!user) return false;
-        if (user.role === 'admin') return true;
-        // Company branding and Integration credentials are admin-only.
-        if (user.role === 'manager') return tab.id !== 'Company' && tab.id !== 'Integrations';
-        if (user.role === 'team_member') return tab.id === 'Profile';
-        return false;
-    });
-
-    return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-xl">
-                            <Settings className="w-7 h-7 text-primary" />
-                        </div>
-                        Settings
-                    </h1>
-                    <p className="text-gray-500 mt-2 font-medium">Control your workspace, security, and team preferences.</p>
-                </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-8">
-                {/* Sidebar Navigation */}
-                <aside className="w-full lg:w-72 flex-shrink-0">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-2">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === tab.id
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    }`}
-                            >
-                                <tab.icon className={`w-5 h-5 flex-shrink-0 ${activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-primary'}`} />
-                                <div className="text-left">
-                                    <p className="text-sm font-bold leading-none mb-1">{tab.label}</p>
-                                    <p className={`text-[10px] ${activeTab === tab.id ? 'text-white/70' : 'text-gray-400'}`}>
-                                        {tab.desc}
-                                    </p>
-                                </div>
-                                {activeTab === tab.id && <ChevronRight className="ml-auto w-4 h-4 opacity-70" />}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="mt-6 p-5 bg-gradient-to-br from-indigo-600 to-primary rounded-2xl shadow-lg relative overflow-hidden group">
-                        <div className="relative z-10 text-white">
-                            <h4 className="font-bold flex items-center gap-2 mb-2">
-                                <Shield className="w-4 h-4" />
-                                Security Status
-                            </h4>
-                            <p className="text-xs text-white/80 leading-relaxed mb-4">
-                                Your account is 75% protected. Enable 2FA for maximum security.
-                            </p>
-                            <button className="text-[10px] font-bold uppercase tracking-widest bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg transition-colors">
-                                View Security Log
-                            </button>
-                        </div>
-                        <Zap className="absolute -bottom-4 -right-4 w-24 h-24 text-white/10 group-hover:scale-110 transition-transform" />
-                    </div>
-                </aside>
-
-                {/* Main Content Area */}
-                <main className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden min-h-[600px] flex flex-col animate-slideIn">
-                    {activeTab === 'Profile' && (
-                        <ProfileTab userData={userData} setUserData={setUserData} onSave={handleSaveProfile} />
-                    )}
-                    {activeTab === 'Company' && (
-                        <CompanyTab 
-                            companyData={companyData} 
-                            setCompanyData={setCompanyData} 
-                            onSave={handleSaveCompany}
-                            currency={currency}
-                            setCurrencyByCode={setCurrencyByCode}
-                            availableCurrencies={availableCurrencies}
-                        />
-                    )}
-                    {activeTab === 'Users' && (
-                        <div className="p-8 flex flex-col items-center justify-center h-full text-center">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                                <Users className="w-8 h-8 text-gray-300" />
-                            </div>
-                            <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-                            <p className="text-gray-500 mt-2 max-w-sm">This module is currently being optimized for high-performance teams.</p>
-                        </div>
-                    )}
-                    {activeTab === 'Integrations' && (
-                        <IntegrationsTab />
-                    )}
-                </main>
-            </div>
+  const [section, setSection] = useState<string>('company');
+  return (
+    <div>
+      <PageHeader title="Settings" icon={<SettingsIcon size={20} />} />
+      <div className="flex flex-col lg:flex-row gap-5">
+        <div className="lg:w-52 shrink-0">
+          <div className="card !p-2 flex lg:flex-col gap-0.5 overflow-x-auto">
+            {SECTIONS.map((s) => (
+              <button key={s.key} onClick={() => setSection(s.key)} className={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-sm font-medium whitespace-nowrap ${section === s.key ? 'bg-primary-light text-primary' : 'text-muted hover:bg-bg'}`}>
+                <s.icon size={16} /> {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-    );
+        <div className="flex-1 min-w-0">
+          {section === 'company' && <CompanySection />}
+          {section === 'pipeline' && <PipelineSection />}
+          {section === 'leads' && <LeadSettingsSection />}
+          {section === 'fields' && <CustomFieldsSection />}
+          {section === 'email' && <SmtpSection />}
+          {section === 'whatsapp' && <WhatsAppSection />}
+          {section === 'integrations' && <IntegrationsSection />}
+          {section === 'roles' && <RolesSection />}
+          {section === 'billing' && <BillingSection />}
+          {section === 'audit' && <AuditSection />}
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const ProfileTab: React.FC<{ userData: any; setUserData: any; onSave: () => void }> = ({ userData, setUserData, onSave }) => {
-    const { crmApi } = useApi();
-    const [uploading, setUploading] = useState(false);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setUserData((prev: any) => ({ ...prev, [name]: value }));
-    };
-
-    const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const res = await crmApi.uploadImage(file);
-            setUserData((prev: any) => ({ ...prev, avatar: res.data.url }));
-        } catch (err: any) {
-            alert(err?.message || 'Failed to upload image. Please try a smaller image (max 5 MB).');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    return (
-        <div className="p-8 space-y-10">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Personal Profile</h2>
-                    <p className="text-sm text-gray-500 mt-1 font-medium">Manage your identity and public preferences.</p>
-                </div>
-                <Button onClick={onSave} variant="primary" className="rounded-xl px-6 font-bold shadow-lg shadow-primary/20">
-                    Update Profile
-                </Button>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-10">
-                <div className="flex-shrink-0 text-center">
-                    <div className="relative group mx-auto w-32 h-32">
-                        {userData.avatar ? (
-                            <img
-                                src={userData.avatar}
-                                alt={userData.name}
-                                className="w-32 h-32 rounded-3xl object-cover border-4 border-gray-50 shadow-md ring-1 ring-gray-100 transition-transform group-hover:scale-[1.02]"
-                            />
-                        ) : (
-                            <div className="w-32 h-32 rounded-3xl bg-primary/10 border-4 border-gray-50 shadow-md ring-1 ring-gray-100 flex items-center justify-center text-3xl font-bold text-primary">
-                                {(userData.name || '?').trim().charAt(0).toUpperCase()}
-                            </div>
-                        )}
-                        {uploading && (
-                            <div className="absolute inset-0 rounded-3xl bg-black/40 flex items-center justify-center">
-                                <Loader className="w-6 h-6 text-white animate-spin" />
-                            </div>
-                        )}
-                        <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-white shadow-xl rounded-xl border border-gray-50 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
-                            <Camera className="w-5 h-5 text-gray-600" />
-                            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={uploading} />
-                        </label>
-                    </div>
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <User className="w-3 h-3" /> Full Name
-                        </label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={userData.name}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all transition-duration-300"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <Mail className="w-3 h-3" /> Email Address
-                        </label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={userData.email}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <Phone className="w-3 h-3" /> Phone
-                        </label>
-                        <input
-                            type="text"
-                            name="phone"
-                            value={userData.phone}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <Globe className="w-3 h-3" /> Timezone
-                        </label>
-                        <select
-                            name="timezone"
-                            value={userData.timezone}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                        >
-                            <option value="America/New_York">Eastern Time (EST)</option>
-                            <option value="America/Chicago">Central Time (CST)</option>
-                            <option value="America/Denver">Mountain Time (MST)</option>
-                            <option value="America/Los_Angeles">Pacific Time (PST)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <ChangePasswordSection />
-        </div>
-    );
+const CompanySection: React.FC = () => {
+  const { state, dispatch, toast } = useStore();
+  const [s, setS] = useState(state.settings);
+  return (
+    <div className="card p-6">
+      <h3 className="text-base font-semibold text-ink mb-4">Company Profile</h3>
+      <div className="flex items-center gap-4 mb-5">
+        <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-xl">PX</div>
+        <Button variant="outline"><Upload size={15} /> Upload Logo</Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="Company Name"><Input value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} /></Field>
+        <Field label="Industry"><Input value={s.industry} onChange={(e) => setS({ ...s, industry: e.target.value })} /></Field>
+        <Field label="Website"><Input value={s.website} onChange={(e) => setS({ ...s, website: e.target.value })} /></Field>
+        <Field label="Phone"><Input value={s.phone} onChange={(e) => setS({ ...s, phone: e.target.value })} /></Field>
+        <Field label="Address" className="md:col-span-2"><Input value={s.address} onChange={(e) => setS({ ...s, address: e.target.value })} /></Field>
+        <Field label="City"><Input value={s.city} onChange={(e) => setS({ ...s, city: e.target.value })} /></Field>
+        <Field label="State"><Input value={s.state} onChange={(e) => setS({ ...s, state: e.target.value })} /></Field>
+        <Field label="PIN"><Input value={s.pin} onChange={(e) => setS({ ...s, pin: e.target.value })} /></Field>
+        <Field label="Currency"><Select value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })}>{['INR', 'USD', 'EUR', 'GBP', 'AED'].map((c) => <option key={c}>{c}</option>)}</Select></Field>
+        <Field label="Timezone"><Input value={s.timezone} onChange={(e) => setS({ ...s, timezone: e.target.value })} /></Field>
+        <Field label="Date Format"><Select value={s.dateFormat} onChange={(e) => setS({ ...s, dateFormat: e.target.value })}>{['DD MMM YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'].map((d) => <option key={d}>{d}</option>)}</Select></Field>
+      </div>
+      <div className="flex justify-end mt-5"><Button onClick={() => { dispatch({ type: 'PATCH_SETTINGS', patch: s }); toast('Company profile saved'); }}>Save Changes</Button></div>
+    </div>
+  );
 };
 
-const ChangePasswordSection: React.FC = () => {
-    const { crmApi } = useApi();
-    const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-
-    const handleSave = async () => {
-        if (form.newPassword !== form.confirmPassword) {
-            setToast({ type: 'error', msg: 'New passwords do not match.' });
-            return;
-        }
-        if (form.newPassword.length < 6) {
-            setToast({ type: 'error', msg: 'New password must be at least 6 characters.' });
-            return;
-        }
-        setSaving(true);
-        setToast(null);
-        try {
-            await crmApi.changePassword(form.currentPassword, form.newPassword);
-            setToast({ type: 'success', msg: 'Password updated successfully.' });
-            setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (err: any) {
-            setToast({ type: 'error', msg: err?.message || 'Failed to update password.' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="pt-8 border-t border-gray-50 space-y-5">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900">Change Password</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Update your account password.</p>
-                </div>
-            </div>
-            {toast && (
-                <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-semibold ${toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-                    {toast.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                    {toast.msg}
-                </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                    { label: 'Current Password', key: 'currentPassword' },
-                    { label: 'New Password', key: 'newPassword' },
-                    { label: 'Confirm New Password', key: 'confirmPassword' },
-                ].map(({ label, key }) => (
-                    <div key={key} className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</label>
-                        <input
-                            type="password"
-                            value={form[key as keyof typeof form]}
-                            onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                        />
-                    </div>
-                ))}
-            </div>
-            <div className="flex justify-end">
-                <Button onClick={handleSave} variant="primary" disabled={saving || !form.currentPassword || !form.newPassword} className="rounded-xl px-5 font-bold">
-                    {saving ? 'Saving…' : 'Update Password'}
-                </Button>
-            </div>
+const PipelineSection: React.FC = () => {
+  const { state, toast } = useStore();
+  return (
+    <div className="flex flex-col gap-4">
+      {state.pipelines.map((p) => (
+        <div key={p.id} className="card p-5">
+          <div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold text-ink">{p.name}</h3><span className="text-xs text-muted">{p.stages.length} stages</span></div>
+          <div className="flex flex-col gap-2">
+            {p.stages.map((st) => (
+              <div key={st.key} className="flex items-center gap-3 p-2.5 rounded-lg border border-line">
+                <GripVertical size={15} className="text-muted cursor-grab" />
+                <span className="w-3 h-3 rounded-full" style={{ background: st.color }} />
+                <span className="flex-1 text-sm text-ink">{st.name}</span>
+                <span className="text-xs text-muted">{st.probability}%</span>
+                <button className="text-muted hover:text-danger"><Trash2 size={14} /></button>
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => toast('Stage added (mock)')}><Plus size={14} /> Add Stage</Button>
         </div>
-    );
+      ))}
+      <Button className="w-fit" onClick={() => toast('Pipeline added (mock)')}><Plus size={16} /> Add Pipeline</Button>
+    </div>
+  );
 };
 
-const CompanyTab: React.FC<{ 
-    companyData: any; 
-    setCompanyData: any; 
-    onSave: () => void;
-    currency: any;
-    setCurrencyByCode: (code: string) => void;
-    availableCurrencies: any[];
-}> = ({ companyData, setCompanyData, onSave, currency, setCurrencyByCode, availableCurrencies }) => {
-    const { crmApi } = useApi();
-    const [uploadingLogo, setUploadingLogo] = useState(false);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setCompanyData((prev: any) => ({ ...prev, [name]: value }));
-    };
-
-    const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploadingLogo(true);
-        try {
-            const res = await crmApi.uploadImage(file);
-            setCompanyData((prev: any) => ({ ...prev, logo: res.data.url }));
-        } catch (err: any) {
-            alert(err?.message || 'Failed to upload logo. Please try a smaller image (max 5 MB).');
-        } finally {
-            setUploadingLogo(false);
-        }
-    };
-
-    return (
-        <div className="p-8 space-y-10">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Workspace Details</h2>
-                    <p className="text-sm text-gray-500 mt-1 font-medium">Branding and essential company information.</p>
-                </div>
-                <Button onClick={onSave} variant="primary" className="rounded-xl px-6 font-bold shadow-lg shadow-primary/20">
-                    Save Updates
-                </Button>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-12">
-                <div className="lg:w-1/3 space-y-8">
-                    <div className="space-y-4">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Brand Identity</label>
-                        <div className="bg-gray-50/50 p-8 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center group hover:bg-gray-50 hover:border-primary/30 transition-all">
-                            <img
-                                src={companyData.logo}
-                                alt={companyData.name}
-                                className="w-full max-w-[150px] h-12 object-contain mb-4 transition-transform group-hover:scale-105"
-                            />
-                            <label className="px-4 py-2 bg-white shadow-sm border border-gray-100 text-primary text-xs font-bold rounded-lg cursor-pointer hover:shadow-md transition-all">
-                                {uploadingLogo ? 'Uploading…' : 'Replace Logo'}
-                                <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} disabled={uploadingLogo} />
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <Coins className="w-3 h-3" /> Currency Settings
-                        </label>
-                        <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Primary Currency</p>
-                            <select 
-                                value={currency.code}
-                                onChange={(e) => setCurrencyByCode(e.target.value)}
-                                className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                            >
-                                {availableCurrencies.map((cur) => (
-                                    <option key={cur.code} value={cur.code}>
-                                        {cur.name} ({cur.symbol})
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
-                                <p className="text-[10px] text-primary font-black uppercase tracking-widest leading-relaxed">
-                                    Current display: <span className="text-lg ml-2">{currency.symbol} 1,250.00</span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Corporate Name</label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={companyData.name}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Website URL</label>
-                        <input
-                            type="text"
-                            name="website"
-                            value={companyData.website}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 font-sans">Support Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={companyData.email}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Contact Line</label>
-                        <input
-                            type="text"
-                            name="phone"
-                            value={companyData.phone}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                            <MapPin className="w-3 h-3" /> Registered Address
-                        </label>
-                        <textarea
-                            name="address"
-                            value={companyData.address}
-                            onChange={handleChange}
-                            rows={3}
-                            className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+const LeadSettingsSection: React.FC = () => {
+  const { state, dispatch, toast } = useStore();
+  const [src, setSrc] = useState('');
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold text-ink mb-3">Lead Sources</h3>
+        <div className="flex flex-wrap gap-2 mb-3">{state.settings.leadSources.map((s) => <span key={s} className="inline-flex items-center gap-1.5 bg-bg text-ink text-sm px-3 py-1.5 rounded-lg">{s}<button onClick={() => { dispatch({ type: 'PATCH_SETTINGS', patch: { leadSources: state.settings.leadSources.filter((x) => x !== s) } }); }} className="text-muted hover:text-danger"><Trash2 size={13} /></button></span>)}</div>
+        <div className="flex gap-2"><Input value={src} onChange={(e) => setSrc(e.target.value)} placeholder="New source name" className="max-w-xs" /><Button onClick={() => { if (src.trim()) { dispatch({ type: 'PATCH_SETTINGS', patch: { leadSources: [...state.settings.leadSources, src.trim()] } }); setSrc(''); toast('Source added'); } }}><Plus size={15} /> Add</Button></div>
+      </div>
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold text-ink mb-3">Lead Statuses</h3>
+        <div className="flex flex-col gap-2">{['New', 'Contacted', 'Qualified', 'Not Interested', 'Junk', 'Converted'].map((s) => <div key={s} className="flex items-center gap-3 p-2.5 rounded-lg border border-line"><GripVertical size={15} className="text-muted" /><StatusBadge value={s} dot /><span className="flex-1" /><button className="text-muted hover:text-danger"><Trash2 size={14} /></button></div>)}</div>
+      </div>
+      <div className="card p-5 flex items-center justify-between"><div><p className="text-sm font-semibold text-ink">Auto-assignment (Round Robin)</p><p className="text-xs text-muted">Automatically distribute new leads across agents.</p></div><button className="relative w-11 h-6 rounded-full bg-success"><span className="absolute top-0.5 left-5 w-5 h-5 rounded-full bg-white" /></button></div>
+    </div>
+  );
 };
 
-const MASKED = '••••••••';
-
-const IntegrationsTab: React.FC = () => {
-    const [activeIntegration, setActiveIntegration] = useState<'meta' | 'google'>('meta');
-
-    return (
-        <div className="p-8 space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900">Integrations</h2>
-                <p className="text-sm text-gray-500 mt-1 font-medium">Configure third-party connections for your CRM.</p>
-            </div>
-            <div className="flex gap-2 border-b border-gray-100 pb-0">
-                <button
-                    onClick={() => setActiveIntegration('meta')}
-                    className={`px-4 py-2 text-sm font-bold rounded-t-xl border-b-2 transition-all ${activeIntegration === 'meta' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-700'}`}
-                >
-                    Meta Ads
-                </button>
-                <button
-                    onClick={() => setActiveIntegration('google')}
-                    className={`px-4 py-2 text-sm font-bold rounded-t-xl border-b-2 transition-all ${activeIntegration === 'google' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-700'}`}
-                >
-                    Google Sheets
-                </button>
-            </div>
-            {activeIntegration === 'meta' ? <MetaIntegrationSection /> : <GoogleSheetsTab />}
-        </div>
-    );
+const CustomFieldsSection: React.FC = () => {
+  const [mod, setMod] = useState<'Leads' | 'Contacts' | 'Deals'>('Leads');
+  const { toast } = useStore();
+  const fields = [{ label: 'Industry', type: 'Dropdown', required: false }, { label: 'Budget', type: 'Number', required: true }, { label: 'Source Campaign', type: 'Text', required: false }];
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="inline-flex p-0.5 rounded-lg bg-bg border border-line">{(['Leads', 'Contacts', 'Deals'] as const).map((m) => <button key={m} onClick={() => setMod(m)} className={`px-3 py-1.5 rounded-md text-sm font-medium ${mod === m ? 'bg-white text-primary shadow-sm' : 'text-muted'}`}>{m}</button>)}</div>
+        <Button size="sm" onClick={() => toast('Field added (mock)')}><Plus size={14} /> Add Field</Button>
+      </div>
+      <table className="w-full text-sm"><thead><tr className="text-xs uppercase text-muted border-b border-line"><th className="text-left font-semibold py-2">Label</th><th className="text-left font-semibold py-2">Type</th><th className="text-center font-semibold py-2">Required</th><th className="text-right font-semibold py-2"></th></tr></thead>
+        <tbody className="divide-y divide-line">{fields.map((f) => <tr key={f.label}><td className="py-3 text-ink">{f.label}</td><td className="py-3"><StatusBadge value={f.type} tone="indigo" /></td><td className="py-3 text-center">{f.required ? <Check size={15} className="text-success inline" /> : '—'}</td><td className="py-3 text-right"><button className="text-muted hover:text-danger"><Trash2 size={14} /></button></td></tr>)}</tbody></table>
+    </div>
+  );
 };
 
-const MetaIntegrationSection: React.FC = () => {
-    const { crmApi } = useApi();
-    const [config, setConfig] = useState({
-        appId: '',
-        appSecret: '',
-        webhookVerifyToken: '',
-        redirectUri: '',
-    });
-    const [showSecret, setShowSecret] = useState(false);
-    const [showToken, setShowToken] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+const SmtpSection: React.FC = () => {
+  const { toast } = useStore();
+  return (
+    <div className="card p-6"><h3 className="text-base font-semibold text-ink mb-4">Email (SMTP) Settings</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="SMTP Host"><Input defaultValue="smtp.pipelinex.io" /></Field><Field label="Port"><Input defaultValue="587" /></Field>
+        <Field label="Username"><Input defaultValue="noreply@pipelinex.io" /></Field><Field label="Password"><Input type="password" defaultValue="••••••••" /></Field>
+        <Field label="From Name"><Input defaultValue="PipelineX Sales" /></Field><Field label="Encryption"><Select><option>TLS</option><option>SSL</option></Select></Field>
+      </div>
+      <div className="flex justify-end mt-5 gap-2"><Button variant="outline" onClick={() => toast('Test email sent')}>Send Test</Button><Button onClick={() => toast('SMTP settings saved')}>Save</Button></div>
+    </div>
+  );
+};
 
-    const defaultRedirectUri = `${getServerOrigin()}/api/meta/callback`;
+const WhatsAppSection: React.FC = () => {
+  const { toast } = useStore();
+  return (
+    <div className="card p-6"><h3 className="text-base font-semibold text-ink mb-4">WhatsApp Business API</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="API Key"><Input defaultValue="wa_live_xxxxxxxxxxxx" /></Field><Field label="Phone Number"><Input defaultValue="+91 90000 12345" /></Field>
+        <Field label="Webhook URL" className="md:col-span-2"><Input defaultValue="https://api.pipelinex.io/wa/webhook" /></Field>
+      </div>
+      <div className="flex justify-end mt-5"><Button onClick={() => toast('WhatsApp settings saved')}>Save</Button></div>
+    </div>
+  );
+};
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await crmApi.getIntegrationConfig('meta');
-                const cfg = res.data?.config || {};
-                setConfig({
-                    appId: cfg.appId || '',
-                    appSecret: cfg.appSecret || '',
-                    webhookVerifyToken: cfg.webhookVerifyToken || '',
-                    redirectUri: cfg.redirectUri || defaultRedirectUri,
-                });
-            } catch {
-                setConfig(prev => ({ ...prev, redirectUri: defaultRedirectUri }));
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, []);
-
-    const handleSave = async () => {
-        setSaving(true);
-        setToast(null);
-        try {
-            await crmApi.updateIntegrationConfig('meta', config);
-            setToast({ type: 'success', msg: 'Meta credentials saved successfully.' });
-        } catch {
-            setToast({ type: 'error', msg: 'Failed to save credentials. Please try again.' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="p-8 flex items-center justify-center h-full">
-                <Loader className="w-6 h-6 text-primary animate-spin" />
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-6">
-            {toast && (
-                <div className={`flex items-center gap-3 p-4 rounded-xl text-sm font-semibold ${
-                    toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                    {toast.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                    {toast.msg}
-                </div>
-            )}
-
-            {/* Meta Ads Integration */}
-            <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                <div className="flex items-center gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-[#1877F2] rounded-xl flex items-center justify-center shrink-0">
-                        <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-gray-900">Meta Ads (Facebook / Instagram)</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Import leads directly from Meta Lead Ads into your CRM</p>
-                    </div>
-                </div>
-
-                <div className="p-6 space-y-6">
-                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm text-blue-800">
-                        <p className="font-bold mb-1">How to set up</p>
-                        <ol className="list-decimal list-inside space-y-1 text-blue-700 font-medium">
-                            <li>Create a Meta App at <span className="font-mono bg-blue-100 px-1 rounded">developers.facebook.com</span></li>
-                            <li>Add <strong>Facebook Login</strong> and <strong>Marketing API</strong> products</li>
-                            <li>Set the OAuth Redirect URI to the value shown below</li>
-                            <li>Copy your App ID and App Secret here, then save</li>
-                        </ol>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">App ID</label>
-                            <input
-                                type="text"
-                                value={config.appId}
-                                onChange={e => setConfig(p => ({ ...p, appId: e.target.value }))}
-                                placeholder="1234567890"
-                                className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">App Secret</label>
-                            <div className="relative">
-                                <input
-                                    type={showSecret ? 'text' : 'password'}
-                                    value={config.appSecret}
-                                    onChange={e => setConfig(p => ({ ...p, appSecret: e.target.value }))}
-                                    placeholder={MASKED}
-                                    className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 pr-12 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowSecret(v => !v)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Webhook Verify Token</label>
-                            <div className="relative">
-                                <input
-                                    type={showToken ? 'text' : 'password'}
-                                    value={config.webhookVerifyToken}
-                                    onChange={e => setConfig(p => ({ ...p, webhookVerifyToken: e.target.value }))}
-                                    placeholder="your-secret-verify-token"
-                                    className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 pr-12 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowToken(v => !v)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-400 px-1">A secret string you choose — paste this into Meta Webhooks → Verify Token</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">OAuth Redirect URI</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={config.redirectUri}
-                                    onChange={e => setConfig(p => ({ ...p, redirectUri: e.target.value }))}
-                                    className="flex-1 bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-mono text-gray-600 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => navigator.clipboard.writeText(config.redirectUri)}
-                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-600 transition-colors whitespace-nowrap"
-                                >
-                                    Copy
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-400 px-1">Add this URL to your Meta App's Valid OAuth Redirect URIs</p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                        <Button
-                            onClick={handleSave}
-                            variant="primary"
-                            disabled={saving}
-                            className="rounded-xl px-6 font-bold shadow-lg shadow-primary/20"
-                        >
-                            {saving ? 'Saving…' : 'Save Credentials'}
-                        </Button>
-                    </div>
-                </div>
-            </div>
+const IntegrationsSection: React.FC = () => {
+  const { state, dispatch, toast } = useStore();
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {state.integrations.map((it) => (
+        <div key={it.id} className="card p-5">
+          <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-bg flex items-center justify-center text-sm font-bold text-ink">{it.name.slice(0, 2)}</div><div><p className="text-sm font-semibold text-ink">{it.name}</p><p className="text-xs text-muted">{it.category}</p></div></div>
+          {it.connected ? <div className="flex items-center gap-2 mb-3"><StatusBadge value="Connected ✓" tone="green" /><span className="text-xs text-muted">synced {it.lastSync ? 'recently' : ''}</span></div> : <p className="text-xs text-muted mb-3">Not connected</p>}
+          <Button variant={it.connected ? 'outline' : 'primary'} size="sm" className="w-full" onClick={() => { dispatch({ type: 'UPDATE', key: 'integrations', id: it.id, patch: { connected: !it.connected, lastSync: new Date().toISOString() } }); toast(it.connected ? `${it.name} disconnected` : `${it.name} connected`); }}>{it.connected ? 'Disconnect' : 'Connect'}</Button>
         </div>
-    );
+      ))}
+    </div>
+  );
+};
+
+const RolesSection: React.FC = () => {
+  const { toast } = useStore();
+  const roles = ['Admin', 'Manager', 'Agent', 'Viewer'];
+  const mods = ['Leads', 'Deals', 'Contacts', 'Calls', 'Reports', 'Settings'];
+  return (
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line bg-bg/40"><th className="text-left font-semibold px-4 py-3 text-xs uppercase text-muted">Module</th>{roles.map((r) => <th key={r} className="text-center font-semibold px-4 py-3 text-xs uppercase text-muted">{r}</th>)}</tr></thead>
+        <tbody className="divide-y divide-line">{mods.map((m) => <tr key={m}><td className="px-4 py-3 font-medium text-ink">{m}</td>{roles.map((r) => <td key={r} className="px-4 py-3 text-center"><input type="checkbox" defaultChecked={r !== 'Viewer' || m === 'Reports'} className="accent-primary" /></td>)}</tr>)}</tbody></table></div>
+      <div className="p-4 border-t border-line flex justify-end"><Button onClick={() => toast('Permissions saved')}>Save Permissions</Button></div>
+    </div>
+  );
+};
+
+const BillingSection: React.FC = () => {
+  const { toast } = useStore();
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="card p-6 bg-gradient-to-r from-primary to-primary-dark text-white">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm opacity-90">Current Plan</p><p className="text-2xl font-bold">Growth</p><p className="text-sm opacity-80 mt-1">10 users · Renews 15 Jul 2026</p></div><Button className="!bg-white !text-primary">Upgrade Plan</Button></div>
+      </div>
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold text-ink mb-4">Usage</h3>
+        <div className="flex flex-col gap-3">
+          <ProgressBar label="Records (6,400 / 10,000)" value={64} showPct size="sm" />
+          <ProgressBar label="Users (6 / 10)" value={60} showPct size="sm" />
+          <ProgressBar label="Pipelines (3 / 5)" value={60} showPct size="sm" />
+          <ProgressBar label="Storage (3.2 / 10 GB)" value={32} showPct size="sm" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[{ n: 'Free', p: '₹0' }, { n: 'Starter', p: '₹4,999' }, { n: 'Growth', p: '₹9,999', cur: true }, { n: 'Enterprise', p: 'Custom' }].map((pl) => (
+          <div key={pl.n} className={`card p-5 text-center ${pl.cur ? 'border-2 border-primary' : ''}`}><p className="text-sm font-semibold text-ink">{pl.n}</p><p className="text-2xl font-bold text-ink my-2">{pl.p}<span className="text-xs text-muted font-normal">/mo</span></p><Button variant={pl.cur ? 'outline' : 'primary'} size="sm" className="w-full" disabled={pl.cur} onClick={() => toast(`Upgrading to ${pl.n}`)}>{pl.cur ? 'Current' : 'Choose'}</Button></div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const AuditSection: React.FC = () => {
+  const { state } = useStore();
+  return (
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-line bg-bg/40 text-xs uppercase text-muted">{['User', 'Action', 'Module', 'Record', 'Change', 'IP', 'Time'].map((h) => <th key={h} className="text-left font-semibold px-4 py-3">{h}</th>)}</tr></thead>
+        <tbody className="divide-y divide-line">{state.auditLog.map((a) => <tr key={a.id} className="hover:bg-bg/50">
+          <td className="px-4 py-3"><div className="flex items-center gap-2"><Avatar name={a.user} size="xs" /><span className="text-ink text-xs">{a.user}</span></div></td>
+          <td className="px-4 py-3"><StatusBadge value={a.action} tone="indigo" /></td><td className="px-4 py-3 text-muted">{a.module}</td>
+          <td className="px-4 py-3 text-ink">{a.record}</td><td className="px-4 py-3 text-muted text-xs">{a.oldValue ? `${a.oldValue} → ${a.newValue}` : '—'}</td>
+          <td className="px-4 py-3 text-muted text-xs">{a.ip}</td><td className="px-4 py-3 text-muted text-xs">{formatDateTime(a.timestamp)}</td>
+        </tr>)}</tbody></table></div>
+    </div>
+  );
 };
 
 export default SettingsPage;

@@ -1,261 +1,352 @@
-export * from './lead';
-export * from './contact';
-export * from './invoice';
+// ===== PipelineX CRM — Domain Types =====
 
-export type UserRole = 'admin' | 'manager' | 'team_member';
+export type ID = string;
+export type Priority = 'High' | 'Medium' | 'Low';
 
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string;
-    role: UserRole;
-    permissions?: string[];
+export type LeadStatus = 'New' | 'Contacted' | 'Qualified' | 'Not Interested' | 'Junk' | 'Converted';
+export type LeadSource =
+  | 'FB Ads' | 'Instagram' | 'WhatsApp' | 'Web Form' | 'Referral' | 'Cold Call' | 'Google';
+
+export interface ScoreBreakdown {
+  engagement: number;
+  responseRate: number;
+  activity: number;
+  recency: number;
 }
 
-export interface AdLead {
-  id: string;
-  created_time: string;
-  ad_name: string;
-  campaign_name: string;
-  form_name: string;
-  field_data: {
-    full_name: string;
-    email: string;
-    phone_number: string;
-    company_name?: string;
-  };
-}
-
-export type NotificationType = 'invoice_overdue' | 'invoice_due_soon' | 'payment_received' | 'general';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  relatedEntityId?: string; // e.g., invoice ID
-  relatedEntityType?: 'invoice' | 'lead' | 'deal';
-  isRead: boolean;
-  createdAt: string;
-  scheduledFor?: string; // For scheduled notifications
-  sentAt?: string; // When the notification was actually sent
-}
-
-export interface CampaignAccount {
-  id: string;
-  userId: string;
-  provider: 'whatsapp_business' | 'whatsapp_official';
-  connectionType: 'oauth' | 'token';
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiresAt?: string;
-  phoneNumber: string;
-  displayName: string;
-  isConnected: boolean;
-  connectedAt?: string;
-  disconnectedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WhatsAppBusinessAccount {
-  id: string;
-  accountIdFromProvider: string;
+export interface Lead {
+  id: ID;
   name: string;
-  phoneNumber: string;
-  tokenEncrypted: string;
-  tokenExpiresAt?: string;
-  connectedBy: string;
-  connectedAt: string;
-  status: 'connected' | 'disconnected' | 'expiring_soon';
+  phone: string;
+  altPhone?: string;
+  email: string;
+  source: LeadSource;
+  status: LeadStatus;
+  priority: Priority;
+  assignedTo: ID;
+  campaign?: string;
+  tags: string[];
+  notes: string;
+  company?: string;
+  leadScore: number;
+  scoreBreakdown: ScoreBreakdown;
+  lastActivity: string;
+  nextFollowUp?: string;
   createdAt: string;
-  updatedAt: string;
+}
+
+export interface Contact {
+  id: ID;
+  name: string;
+  phones: string[];
+  email: string;
+  company: string;
+  designation: string;
+  source: LeadSource;
+  assignedTo: ID;
+  tags: string[];
+  notes: string;
+  createdAt: string;
+  lastActivity: string;
+}
+
+export interface PipelineStage {
+  key: string;
+  name: string;
+  probability: number;
+  color: string;
+}
+
+export interface Pipeline {
+  id: ID;
+  name: string;
+  stages: PipelineStage[];
+}
+
+export interface Deal {
+  id: ID;
+  title: string;
+  pipelineId: ID;
+  stage: string;
+  value: number;
+  currency: string;
+  contactId?: ID;
+  contactName: string;
+  company: string;
+  probability: number;
+  expectedCloseDate: string;
+  assignedTo: ID;
+  source: LeadSource;
+  productIds: ID[];
+  status: 'open' | 'won' | 'lost';
+  lastActivity: string;
+  createdAt: string;
+  activityCounts: { call: number; email: number; note: number };
+}
+
+export type ActivityType =
+  | 'call' | 'email' | 'note' | 'status' | 'whatsapp' | 'task' | 'meeting' | 'stage' | 'deal_won';
+
+export interface Activity {
+  id: ID;
+  type: ActivityType;
+  entityType: 'lead' | 'contact' | 'deal';
+  entityId: ID;
+  title: string;
+  description?: string;
+  agentId: ID;
+  timestamp: string;
+  meta?: Record<string, string | number>;
+}
+
+export type CallDirection = 'Inbound' | 'Outbound';
+export type CallOutcome = 'Connected' | 'Not Picked' | 'Callback' | 'Busy' | 'Wrong Number' | 'Voicemail';
+
+export interface CallLog {
+  id: ID;
+  contactName: string;
+  phone: string;
+  direction: CallDirection;
+  duration: number;
+  agentId: ID;
+  timestamp: string;
+  outcome: CallOutcome;
+  notes: string;
+  hasRecording: boolean;
+  leadId?: ID;
+  dealId?: ID;
+}
+
+export type TeamRole = 'Admin' | 'Manager' | 'Agent' | 'Viewer';
+export type PresenceStatus = 'Active' | 'Break' | 'In Call' | 'Offline';
+
+export interface TeamMember {
+  id: ID;
+  name: string;
+  email: string;
+  phone: string;
+  role: TeamRole;
+  team: string;
+  active: boolean;
+  presence: PresenceStatus;
+  presenceSince: string;
+  lastActive: string;
+  stats: { calls: number; connected: number; dealsWon: number; revenue: number; tasks: number };
+}
+
+export interface Task {
+  id: ID;
+  title: string;
+  done: boolean;
+  dueDate: string;
+  priority: Priority;
+  assignedTo: ID;
+  entityType?: 'lead' | 'deal' | 'contact';
+  entityId?: ID;
+  entityName?: string;
+}
+
+export interface Product {
+  id: ID;
+  name: string;
+  sku: string;
+  category: string;
+  price: number;
+  tax: number;
+  unit: string;
+  stock: number;
+  lowStockAlert: number;
+  status: 'Active' | 'Inactive';
+  description: string;
+}
+
+export type QuoteStatus = 'Draft' | 'Sent' | 'Viewed' | 'Accepted' | 'Declined' | 'Expired';
+
+export interface QuoteLineItem {
+  id: ID;
+  productId?: ID;
+  name: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  discount: number;
+  tax: number;
+}
+
+export interface Quote {
+  id: ID;
+  number: string;
+  title: string;
+  contactName: string;
+  company: string;
+  billToAddress: string;
+  dealId?: ID;
+  items: QuoteLineItem[];
+  currency: string;
+  status: QuoteStatus;
+  notes: string;
+  terms: string;
+  createdAt: string;
+  expiryDate: string;
+}
+
+export type BillingCycle = 'Monthly' | 'Quarterly' | 'Yearly';
+export type SubscriptionStatus = 'Active' | 'Cancelled' | 'Paused' | 'Trial';
+
+export interface Subscription {
+  id: ID;
+  contactName: string;
+  plan: string;
+  mrr: number;
+  billingCycle: BillingCycle;
+  startDate: string;
+  renewalDate: string;
+  status: SubscriptionStatus;
+  autoRenew: boolean;
+  seats: number;
+}
+
+export type NotificationType = 'call' | 'lead' | 'task' | 'deal_won' | 'quote' | 'followup' | 'system';
+
+export interface AppNotification {
+  id: ID;
+  type: NotificationType;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  link?: string;
+}
+
+export interface EmailMessage {
+  id: ID;
+  from: string;
+  fromName: string;
+  to: string;
+  cc?: string;
+  subject: string;
+  preview: string;
+  body: string;
+  timestamp: string;
+  folder: 'inbox' | 'sent' | 'drafts' | 'scheduled';
+  label?: 'Follow-up' | 'Proposal' | 'Invoice' | 'Important';
+  tag?: 'Lead' | 'Contact' | 'Deal';
+  read: boolean;
+  attachments: number;
+}
+
+export interface EmailTemplate {
+  id: ID;
+  name: string;
+  category: string;
+  subject: string;
+  body: string;
+}
+
+export interface WhatsAppMessage {
+  id: ID;
+  fromMe: boolean;
+  text: string;
+  timestamp: string;
+  type: 'text' | 'template' | 'image' | 'document';
+  status?: 'sent' | 'delivered' | 'read';
+}
+
+export interface WhatsAppConversation {
+  id: ID;
+  contactName: string;
+  phone: string;
+  kind: 'Lead' | 'Contact';
+  unread: number;
+  messages: WhatsAppMessage[];
 }
 
 export interface WhatsAppTemplate {
-  id: string;
-  accountId: string;
+  id: ID;
   name: string;
-  namespace: string;
-  language: string;
-  components: {
-    type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
-    text?: string;
-    buttons?: Array<{
-      type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER';
-      text: string;
-      url?: string;
-      phone?: string;
-    }>;
-  }[];
-  variables: string[];
-  status: 'APPROVED' | 'PENDING' | 'REJECTED';
-  category: string;
-  createdAt: string;
-  updatedAt: string;
+  category: 'Follow-up' | 'Reminder' | 'Invoice' | 'Promotion' | 'Welcome';
+  status: 'Approved' | 'Pending' | 'Rejected';
+  body: string;
 }
 
-export type CampaignModuleStatus = 'draft' | 'scheduled' | 'sending' | 'completed' | 'paused' | 'cancelled';
-export type CampaignMessageType = 'template' | 'free_text';
-export type ScheduleType = 'immediate' | 'scheduled';
-export type TargetAudienceType = 'list' | 'tag' | 'segment';
-
-export interface CampaignModule {
-  id: string;
-  userId: string;
-  accountId: string;
+export interface Broadcast {
+  id: ID;
   name: string;
-  type: CampaignMessageType;
-  messageTemplate?: string;
-  messageVariables?: string[];
-  scheduleType: ScheduleType;
-  scheduledAt?: string;
-  targetAudienceType: TargetAudienceType;
-  targetAudienceValue?: any;
-  rateControl: number;
-  status: CampaignModuleStatus;
-  sentCount: number;
-  deliveredCount: number;
-  failedCount: number;
-  bouncedCount: number;
-  createdAt: string;
-  updatedAt: string;
+  template: string;
+  recipients: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  replied: number;
+  date: string;
 }
 
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
+export type GoalType = 'Calls' | 'Revenue' | 'Deals Won' | 'Meetings' | 'Demos';
+export type GoalPeriod = 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly';
 
-export interface CampaignMessage {
-  id: string;
-  campaignId: string;
-  contactId: string;
-  messageId?: string;
-  status: MessageStatus;
-  errorCode?: string;
-  errorMessage?: string;
-  sentAt?: string;
-  deliveredAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CampaignModuleItem {
-  id: string;
+export interface Goal {
+  id: ID;
   name: string;
-  senderAccountId: string;
-  messageType: 'template' | 'free_text';
-  messageBody?: string;
-  variables: string[];
-  targetQuery: {
-    type: 'list' | 'group' | 'tag' | 'manual' | 'imported_csv_job' | 'meta_form';
-    value: any;
-  };
-  scheduleAt?: string;
-  status: 'draft' | 'queued' | 'sending' | 'completed' | 'failed' | 'cancelled';
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  type: GoalType;
+  assigneeId: ID;
+  target: number;
+  current: number;
+  period: GoalPeriod;
 }
 
-export interface CampaignRecipient {
-  id: string;
-  campaignId: string;
-  contactId?: string;
-  phone?: string;
-  personalizedMessage?: string;
-  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
-  providerResponse?: any;
-  attemptedAt?: string;
-  deliveredAt?: string;
-  retries: number;
-  createdAt: string;
-  updatedAt: string;
+export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'Late';
+export interface AttendanceRecord {
+  id: ID;
+  employeeId: ID;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  breakMinutes: number;
+  location: string;
+  coords: { lat: number; lng: number };
+  status: AttendanceStatus;
 }
 
-export interface CampaignLead {
-  id: string;
-  contactId: string;
-  campaignId: string;
-  messageSnippet?: string;
-  status: 'new' | 'contacted' | 'qualified' | 'lost';
-  assignedTo?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ImportJob {
-  id: string;
-  fileName: string;
-  status: 'processing' | 'completed' | 'failed';
-  totalRows: number;
-  importedRows: number;
-  duplicateRows: number;
-  invalidRows: number;
-  groupId?: string;
-  createdBy: string;
-  createdAt: string;
-  completedAt?: string;
-}
-
-export interface CampaignAuditLog {
-  id: string;
-  action: string;
-  accountId?: string;
-  campaignId?: string;
-  importJobId?: string;
-  details?: any;
-  createdBy: string;
-  createdAt: string;
-}
-
-export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
-export type TaskPriority = 'High' | 'Medium' | 'Low';
-
-export interface Task {
-  id: string;
+export type WorkflowNodeKind = 'trigger' | 'condition' | 'action' | 'delay';
+export interface WorkflowNode {
+  id: ID;
+  kind: WorkflowNodeKind;
+  icon: string;
   title: string;
-  description?: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  dueDate: string;
-  assignedToId: string;
-  relatedTo?: {
-    type: 'Lead' | 'Contact' | 'Deal';
-    id: string;
-    name: string;
-  };
+  description: string;
+}
+export interface Workflow {
+  id: ID;
+  name: string;
+  trigger: string;
+  nodes: WorkflowNode[];
+  active: boolean;
+  lastRun?: string;
+  triggeredToday: number;
 }
 
-export type DealStage = 'Prospecting' | 'Qualification' | 'Proposal' | 'Negotiation' | 'Closed - Won' | 'Closed - Lost';
-
-export interface Deal {
-  id: string;
+export interface Integration {
+  id: ID;
   name: string;
-  accountId: string;
-  accountName: string;
-  stage: DealStage;
-  value: number;
-  closeDate: string;
-  ownerId: string;
+  category: string;
+  connected: boolean;
+  lastSync?: string;
 }
 
-export interface Account {
-  id: string;
-  name: string;
-  industry: string;
-  phone: string;
-  website: string;
-  ownerId: string;
+export interface AuditEntry {
+  id: ID;
+  user: string;
+  action: string;
+  module: string;
+  record: string;
+  oldValue?: string;
+  newValue?: string;
+  ip: string;
+  timestamp: string;
 }
 
-export type CampaignStatus = 'Active' | 'Inactive' | 'Completed';
-export type CampaignType = 'Email' | 'Social Media' | 'Broadcast' | 'API' | 'Scheduled';
-
-export interface Campaign {
-  id: string;
-  name: string;
-  type: CampaignType;
-  status: CampaignStatus;
-  audience: number;
-  createdAt: string;
+export type ToastKind = 'success' | 'error' | 'warning' | 'info';
+export interface Toast {
+  id: ID;
+  kind: ToastKind;
+  message: string;
 }

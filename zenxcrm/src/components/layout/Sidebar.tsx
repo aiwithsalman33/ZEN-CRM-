@@ -1,85 +1,96 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { NAV_LINKS } from '../../constants';
-import { X, LayoutDashboard } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { ChevronLeft, LogOut } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { navItems, navGroups } from './nav';
+import { useStore } from '@/store/store';
+import { Avatar } from '@/components/ui';
 
-interface SidebarProps {
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
-  const { user } = useAuth();
-
-  const filteredNavLinks = useMemo(() => {
-    if (!user) return [];
-    if (user.role === 'admin') return NAV_LINKS;
-
-    const managerAccess = ['Dashboard', 'Leads', 'Contacts', 'Deals', 'Tasks', 'Campaigns', 'Ads Sync', 'Reports', 'Notifications', 'Team', 'Settings'];
-    const teamMemberAccess = ['Dashboard', 'Leads', 'Tasks', 'Contacts', 'Campaigns', 'Settings'];
-
-    const allowedNames = user.role === 'manager' ? managerAccess : teamMemberAccess;
-
-    return NAV_LINKS.filter(link => allowedNames.includes(link.name));
-  }, [user]);
+export const Sidebar: React.FC<{
+  collapsed: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+}> = ({ collapsed, onToggle, onNavigate }) => {
+  const { state } = useStore();
+  const me = state.team.find((t) => t.id === state.currentUserId) ?? state.team[0];
 
   return (
-    <>
-      {/* Overlay for mobile */}
-      <div
-        className={`fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-30 transition-opacity duration-300 lg:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        onClick={() => setIsOpen(false)}
-        aria-hidden="true"
-      ></div>
-
-      <aside
-        className={`w-64 bg-sidebar text-white flex flex-col fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto border-r border-gray-800 ${isOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-      >
-        <div className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-gray-700/50 bg-sidebar">
-          <div className="flex items-center gap-3 w-full">
-            <img src="/axxeler-logo-white.png" alt="Axxeler CRM" className="h-14 w-auto object-contain" />
+    <aside
+      className={cn(
+        'h-full bg-sidebar text-sidebar-text flex flex-col transition-all duration-300 shrink-0',
+        collapsed ? 'w-16' : 'w-60',
+      )}
+    >
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 h-[60px] px-3.5 shrink-0 border-b border-white/5">
+        {collapsed ? (
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <span className="text-white font-extrabold text-lg leading-none">X</span>
           </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="lg:hidden p-1 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        ) : (
+          <img src="/zenx-crm-logo.png" alt="ZENX CRM" className="h-9 w-auto object-contain" />
+        )}
+        <button
+          onClick={onToggle}
+          className={cn('ml-auto p-1.5 rounded-lg hover:bg-sidebar-2 text-sidebar-text/70 hidden lg:flex shrink-0', collapsed && 'rotate-180')}
+          title="Toggle sidebar"
+          aria-label="Toggle sidebar"
+        >
+          <ChevronLeft size={16} />
+        </button>
+      </div>
 
-        <nav className="flex-1 px-3 py-6 overflow-y-auto">
-          <ul className="space-y-1">
-            {filteredNavLinks.map((link) => (
-              <li key={link.name}>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto no-scrollbar py-2 px-2.5">
+        {navGroups.map((group) => (
+          <div key={group} className="mb-0.5">
+            {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 px-3 pt-3 pb-1">{group}</p>}
+            {collapsed && <div className="h-px bg-white/5 my-2 mx-2" />}
+            {navItems.filter((n) => n.group === group).map((item) => {
+              const Icon = item.icon;
+              return (
                 <NavLink
-                  to={link.href}
-                  onClick={() => setIsOpen(false)}
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
-                    `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                      ? 'bg-primary text-white shadow-md'
-                      : 'text-gray-400 hover:text-white hover:bg-sidebar-hover'
-                    }`
+                    cn(
+                      'flex items-center gap-3 px-3 h-10 rounded-lg my-0.5 text-sm font-medium transition-colors relative',
+                      collapsed && 'justify-center',
+                      isActive
+                        ? 'bg-primary text-white before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-white/70'
+                        : 'text-sidebar-text hover:bg-sidebar-2 hover:text-white',
+                    )
                   }
+                  title={collapsed ? item.label : undefined}
                 >
-                  {({ isActive }) => (
-                    <>
-                      <link.icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'
-                        }`} />
-                      <span>{link.name}</span>
-                    </>
-                  )}
+                  <Icon size={19} className="shrink-0" />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
 
-      </aside>
-    </>
+      {/* Bottom user */}
+      <div className="shrink-0 border-t border-white/5 p-2.5">
+        <div className={cn('flex items-center gap-2.5 p-1.5 rounded-lg', !collapsed && 'hover:bg-sidebar-2')}>
+          <Avatar name={me.name} size="sm" />
+          {!collapsed && (
+            <>
+              <div className="flex flex-col leading-tight min-w-0 flex-1">
+                <span className="text-sm font-medium text-white truncate">{me.name}</span>
+                <span className="text-[11px] text-slate-500">{me.role}</span>
+              </div>
+              <button className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-danger" title="Logout" aria-label="Logout">
+                <LogOut size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 };
-
-export default Sidebar;
