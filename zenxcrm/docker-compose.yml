@@ -1,0 +1,115 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Axxeler CRM — Production Docker Compose (Dokploy)
+#  Live URL : https://axcrm.axxeler.in
+#
+#  Deployed via Dokploy as a "Docker Compose" service (Build from source).
+#  Dokploy builds the images from the Dockerfiles in this repo on each deploy,
+#  and routes traffic through ITS OWN Traefik on the external `dokploy-network`.
+#
+#  Requirements on the Dokploy host (provided by Dokploy itself):
+#    • external network `dokploy-network` must exist (it does, Dokploy creates it)
+#    • Traefik cert resolver named `letsencrypt` (Dokploy default)
+#    • DNS: axcrm.axxeler.in → VPS public IP, ports 80/443 open
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     axxeler
+      POSTGRES_PASSWORD: Axx3l3rDB@Secure2024
+      POSTGRES_DB:       axxeler_crm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U axxeler -d axxeler_crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend — Express API + BullMQ workers ────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV:               production
+      PORT:                   "4000"
+      # NOTE: the '@' in the password is URL-encoded as %40 so the connection
+      # string parses unambiguously.
+      DATABASE_URL:           postgresql://axxeler:Axx3l3rDB%40Secure2024@db:5432/axxeler_crm
+      REDIS_URL:              redis://redis:6379
+      JWT_ACCESS_SECRET:      "nTbLtxcRcsiUhf91NJ5L0sUJUNymhlt8qH6Gg28cNVwGEYO48JzUfKxHyYJIHo8a"
+      JWT_REFRESH_SECRET:     "NZGjr/Ed/dYxI003yqtkB/NsDR8bDX9v8oiE0Zk+byWa1eIC3SRm0i+KDKIh5EKX"
+      ACCESS_TOKEN_TTL:       15m
+      REFRESH_TOKEN_TTL_DAYS: "30"
+      CLIENT_ORIGIN:          https://axcrm.axxeler.in
+      ENABLE_WORKERS:         "true"
+      RESEND_API_KEY:         re_ZZ5QJUP4_JrDSd7dUJW7PaJ9CjHRyWMZT
+      EMAIL_FROM:             "Axxeler CRM <noreply@axxeler.in>"
+      # Meta / Google / Razorpay credentials can be left blank here and entered at
+      # runtime via Settings → Integrations (stored in the DB). Values set here act
+      # as defaults/fallbacks. Redirect URIs must match the public https origin.
+      META_REDIRECT_URI:      https://axcrm.axxeler.in/api/meta/callback
+      META_APP_ID:            ""
+      META_APP_SECRET:        ""
+      META_WEBHOOK_VERIFY_TOKEN: ""
+      GOOGLE_CLIENT_ID:       ""
+      GOOGLE_CLIENT_SECRET:   ""
+      GOOGLE_REDIRECT_URI:    https://axcrm.axxeler.in/api/google/callback
+      WHATSAPP_GRAPH_VERSION: v20.0
+      RAZORPAY_KEY_ID:        ""
+      RAZORPAY_KEY_SECRET:    ""
+      UPLOAD_DIR:             /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - internal
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Frontend — Nginx SPA + /api proxy → backend ──────────────────────────────
+  #  Routing/TLS is managed by Dokploy's Domains UI (no Traefik labels here).
+  #  In Dokploy → Domains, point the domain at:  service "frontend", port 80.
+  #  The frontend stays on dokploy-network so Dokploy's Traefik can reach it.
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: unless-stopped
+    networks:
+      - internal          # to reach the backend container
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  internal:
+    driver: bridge
